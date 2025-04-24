@@ -68,6 +68,7 @@ class DotMatrix():
 		"""Instantiate the dot matrix printer.
 		"""		
 		
+		self.port = None
 		self.port_endpoint = None
 
 		self.port_connect()
@@ -361,13 +362,13 @@ class DotMatrix():
 			ValueError if the port is not found
 		"""
 
-		port = usb.core.find(idProduct=0x002d, idVendor=0x06bc)
+		self.port = usb.core.find(idProduct=0x002d, idVendor=0x06bc)
 
-		if port is None:
+		if self.port is None:
 			raise ValueError("Can not find OKI Microline 321 in USB listings.")
 
 		# get an endpoint instance
-		cfg = port.get_active_configuration()
+		cfg = self.port.get_active_configuration()
 		intf = cfg[(0,0)]
 
 		ep = usb.util.find_descriptor(
@@ -382,9 +383,9 @@ class DotMatrix():
 
 		self.port_endpoint = ep
 
-		if port.is_kernel_driver_active(0):
+		if self.port.is_kernel_driver_active(0):
 			try:
-				port.detach_kernel_driver(0)
+				self.port.detach_kernel_driver(0)
 				logger.info("kernel driver detached")
 			except usb.core.USBError as e:
 				sys.exit("Could not detach kernel driver: %s" % str(e))
@@ -397,7 +398,20 @@ class DotMatrix():
 		Args:
 			chars (str): The characters to print or control codes to fire.
 		"""
-		self.port_endpoint.write(chars)
+		try:
+			self.port_endpoint.write(chars)
+		except usb.core.USBError as e:
+			logger.error("USB Error: " + str(e))
+			logger.info("Trying to reset kernal driver...")
+			if self.port.is_kernel_driver_active(0):
+				try:
+					self.port.detach_kernel_driver(0)
+					logger.info("kernel driver detached")
+				except usb.core.USBError as e:
+					logger.error("Could not detach kernel driver: " + str(e))
+				self.port_endpoint.write(chars)
+			else:
+				logger.error("Was not busy *shrugs* can not write to port.")
 
 class DotMatrixEmulator(DotMatrix):
 
