@@ -64,14 +64,11 @@ class DotMatrix():
 	# There appear to be 66 lines in a 11in sheet of paper.
 	# That's 6 lines per inch.
 
-	def __init__(self):
+	def __init__(self, port_endpoint):
 		"""Instantiate the dot matrix printer.
 		"""		
 		
-		self.port = None
-		self.port_endpoint = None
-
-		self.port_connect()
+		self.port_endpoint = port_endpoint
 
 		self.font_mode_set("UTIL")
 
@@ -96,14 +93,14 @@ class DotMatrix():
 
 	@classmethod
 	@contextmanager
-	def print_context(cls):
+	def print_context(cls, endpoint):
 		"""While not required, it's best practice to print from within a scope like this so certain
 		finishing actions are always completed after a print job.
 
 		Yields:
 			cls instance (will extend DotMatrix)
 		"""
-		dmprinter = cls()
+		dmprinter = cls(endpoint)
 		try:
 			yield dmprinter
 		finally:
@@ -355,43 +352,6 @@ class DotMatrix():
 		"""
 		self.page_goto_line(0)
 
-	def port_connect(self):
-		"""Connect to the dot matrix printer over USB.
-
-		Raises:
-			ValueError if the port is not found
-		"""
-
-		self.port = usb.core.find(idProduct=0x002d, idVendor=0x06bc)
-
-		if self.port is None:
-			raise ValueError("Can not find OKI Microline 321 in USB listings.")
-
-		# get an endpoint instance
-		cfg = self.port.get_active_configuration()
-		intf = cfg[(0,0)]
-
-		ep = usb.util.find_descriptor(
-			intf,
-			# match the first OUT endpoint
-			custom_match = \
-			lambda e: \
-				usb.util.endpoint_direction(e.bEndpointAddress) == \
-				usb.util.ENDPOINT_OUT)
-
-		assert ep is not None
-
-		self.port_endpoint = ep
-
-		if self.port.is_kernel_driver_active(0):
-			try:
-				self.port.detach_kernel_driver(0)
-				logger.info("kernel driver detached")
-			except usb.core.USBError as e:
-				sys.exit("Could not detach kernel driver: %s" % str(e))
-
-		logger.info(">> Connected to USB")
-
 	def port_write(self, chars):
 		"""Write data straight to the port. This can be pure text to be printed, or an ASCII control char.
 
@@ -400,29 +360,23 @@ class DotMatrix():
 		"""
 		try:
 			self.port_endpoint.write(chars)
-		except usb.core.USBError as e:
-			logger.error("USB Error: " + str(e))
-			logger.info("Trying to reset kernal driver...")
-			if self.port.is_kernel_driver_active(0):
-				try:
-					self.port.detach_kernel_driver(0)
-					logger.info("kernel driver detached")
-				except usb.core.USBError as e:
-					logger.error("Could not detach kernel driver: " + str(e))
-				self.port_endpoint.write(chars)
-			else:
-				logger.error("Was not busy *shrugs* can not write to port.")
+		except usb.core.USBTimeoutError as e:
+			logger.error(
+				"USB Timeout error detected! This is likely because the 'SEL' button needs to be " + \
+				"pressed on the physical printer. SEL should be lit as well as a PRINT QUALITY and CHARACTER " + \
+				"pitch option."
+			)
 
 class DotMatrixEmulator(DotMatrix):
 
-	def __init__(self):
+	def __init__(self, endpoint=None):
 		"""An emulator which sort of simulates what the code here does without actually making
 		the printer print stuff (which saves on paper)
 		"""
 
 		self.printed = ""
 
-		super().__init__()
+		super().__init__(endpoint)
 
 	def port_connect(self):
 		"""Prevent connection

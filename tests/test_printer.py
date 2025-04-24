@@ -1,20 +1,22 @@
 
 # Project code
 from golem_dotmatrix.dotmatrix import DotMatrix, DotMatrixEmulator
+from golem_dotmatrix.usb import port_connect
 
 # Other libs
 import pytest
 
 # Base python
 
-PRINTER_AVAIL = True
+PRINTER_AVAIL = False
 
 @pytest.mark.skipif(not PRINTER_AVAIL, reason="No printer available.")
 def test_actual_print():
 	"""Test use of real printer"""
 
-	with DotMatrix.print_context() as dmprinter:
-		dmprinter.print_block("One\ntwo\nthree")
+	with port_connect(0x002d, 0x06bc) as endpoint:
+		with DotMatrix.print_context(endpoint) as dmprinter:
+			dmprinter.print_block("One\ntwo\nthree")
 
 def test_print_blocks():
 	"""Test that we can print a block properly
@@ -35,7 +37,7 @@ def test_print_blocks():
 	test_block += "\n"*20
 	test_block += "Last line..."
 
-	with DotMatrixEmulator.print_context() as dmprinter:
+	with DotMatrixEmulator.print_context(None) as dmprinter:
 		dmprinter.print_block(test_block)
 		dmprinter.print_block(test_block)
 
@@ -49,7 +51,7 @@ def test_print_block_newlines():
 	test_block += "Each line should have another right below it.\n\n"
 	test_block += "Except for this, which should have an empty line above.\n"
 
-	with DotMatrixEmulator.print_context() as dmprinter:
+	with DotMatrixEmulator.print_context(None) as dmprinter:
 		dmprinter.print_block(test_block)
 
 def test_textwrap():
@@ -61,12 +63,12 @@ def test_textwrap():
 	test_block += "NEWLINE\n\n"
 	test_block += "NEWLINE TWICE"
 
-	with DotMatrixEmulator.print_context() as dmprinter:
+	with DotMatrixEmulator.print_context(None) as dmprinter:
 		dmprinter.print_block(test_block)
 
 def test_v_margins():
 	"""Test that vertical margins work
 	"""
-	with DotMatrixEmulator.print_context() as dmprinter:
+	with DotMatrixEmulator.print_context(None) as dmprinter:
 		for x in range(int(dmprinter.page_lines_get() * 1.5)):
 			dmprinter.write_line("Line " + str(x))

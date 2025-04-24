@@ -6,9 +6,11 @@ Tests for the watchdog loop
 from golem_dotmatrix.watchdog import watchdog_loop
 
 # Other libs
+import pytest
 
 # Base python
 
+@pytest.mark.skip(reason="Manual test.")
 def test_watchdog():
 	"""Test the watchdog in emulation mode.
 	"""

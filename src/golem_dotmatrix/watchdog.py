@@ -6,6 +6,7 @@
 # Our code
 from golem_dotmatrix import dispatcher, logger
 from golem_dotmatrix.dotmatrix import DotMatrix, DotMatrixEmulator
+from golem_dotmatrix.usb import port_connect
 
 # Other libs
 
@@ -21,10 +22,6 @@ def watchdog_loop(emulate=False, interval=15):
 	Args:
 		emulate (bool, optional): Whether to run in emulation-only mode. Default False.
 	"""
-	if emulate:
-		DMClass = DotMatrixEmulator
-	else:
-		DMClass = DotMatrix
 
 	while True:
 
@@ -35,8 +32,13 @@ def watchdog_loop(emulate=False, interval=15):
 
 			if job_data is not None and not job_data == {}:
 
-				with DMClass.print_context() as dmprinter:
-					dmprinter.print_job(job_data)
+				if emulate:
+					with port_connect(0x002d, 0x06bc) as endpoint:
+						with DotMatrix.print_context(endpoint) as dmprinter:
+							dmprinter.print_job(job_data)
+				else:
+					with DotMatrixEmulator.print_context(None) as dmprinter:
+						dmprinter.print_job(job_data)
 			
 		except Exception:
 			job_data = None
